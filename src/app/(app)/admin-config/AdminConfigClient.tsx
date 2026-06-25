@@ -78,18 +78,15 @@ function AdminsCard({
         setError(r.error);
         return;
       }
-      const trimmedNote = note.trim() || null;
-      setAdmins((prev) => {
-        if (prev.some((a) => a.email === e)) {
-          return prev.map((a) =>
-            a.email === e ? { ...a, note: trimmedNote ?? a.note } : a,
-          );
-        }
-        return [
-          ...prev,
-          { email: e, note: trimmedNote, created_at: "", added_by: null },
-        ];
-      });
+      // Reconcile from the row the EF actually wrote (authoritative note,
+      // created_at, added_by), then keep the list in created_at order to
+      // match admin-list-admins.
+      const row = r.admin;
+      setAdmins((prev) =>
+        [...prev.filter((a) => a.email !== row.email), row].sort((a, b) =>
+          a.created_at.localeCompare(b.created_at),
+        ),
+      );
       setEmail("");
       setNote("");
     });
@@ -197,7 +194,7 @@ function AdminsCard({
               <button
                 type="button"
                 onClick={() => remove(a.email)}
-                disabled={isSelf || onlyOne || busy}
+                disabled={isSelf || onlyOne || busy || removing}
                 title={
                   isSelf
                     ? "You can't remove yourself"

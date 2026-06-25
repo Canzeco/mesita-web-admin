@@ -260,7 +260,8 @@ function SourcesSection({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-col gap-2">
+      <Collapsible summary={`Sources active at tier ${ceiling}`}>
+      <div className="flex flex-col gap-2">
         {ATLAS_SOURCES.map((src) => (
           <div
             key={src.key}
@@ -297,6 +298,7 @@ function SourcesSection({
           </div>
         ))}
       </div>
+      </Collapsible>
 
       {error && <ErrorNote message={error} />}
     </SectionCard>
@@ -541,28 +543,10 @@ function VisionParamsSection({
         </div>
       </div>
 
-      <div className="mt-4">
-        <TextAreaField
-          label="Image analysis prompt"
-          value={analysisPrompt}
-          onChange={setAnalysisPrompt}
-          disabled={savePending || !vision}
-        />
-      </div>
-
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <NumberField icon={<ImageIcon className="text-muted-foreground h-4 w-4" />} label="Analyze Google images" value={g} min={0} max={10} onChange={setG} disabled={savePending || !vision} />
         <NumberField icon={<Globe className="text-muted-foreground h-4 w-4" />} label="Analyze Website images" value={w} min={0} max={10} onChange={setW} disabled={savePending || !vision} />
         <NumberField icon={<Instagram className="text-muted-foreground h-4 w-4" />} label="Analyze Instagram images" value={ig} min={0} max={20} onChange={setIg} disabled={savePending || !vision} />
-      </div>
-
-      <div className="mt-4">
-        <TextAreaField
-          label="Image sorting prompt"
-          value={sortingPrompt}
-          onChange={setSortingPrompt}
-          disabled={savePending || !vision}
-        />
       </div>
 
       <div className="mt-4">
@@ -576,6 +560,23 @@ function VisionParamsSection({
           disabled={savePending}
         />
       </div>
+
+      <Collapsible summary="Edit vision & sorting prompts">
+        <div className="space-y-4">
+          <TextAreaField
+            label="Image analysis prompt"
+            value={analysisPrompt}
+            onChange={setAnalysisPrompt}
+            disabled={savePending || !vision}
+          />
+          <TextAreaField
+            label="Image sorting prompt"
+            value={sortingPrompt}
+            onChange={setSortingPrompt}
+            disabled={savePending || !vision}
+          />
+        </div>
+      </Collapsible>
 
       <SaveRow pending={savePending} dirty={dirty} ok={ok} onClick={save} />
       {error && <ErrorNote message={error} />}
@@ -750,10 +751,11 @@ function CostSection({
     <SectionCard
       icon={<DollarSign className="text-muted-foreground h-4 w-4" />}
       title="Per-venue cost estimate"
-      subtitle="What-if external spend to enrich one new venue. Adjust below to see the impact."
+      subtitle="What-if external spend to enrich one new venue."
     >
+      <Collapsible summary="Show cost breakdown">
       {/* Params */}
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         <div className="border-border bg-background flex items-center justify-between gap-4 rounded-xl border p-4">
           <span className="flex items-center gap-2 text-sm font-medium">
             <Layers className="text-muted-foreground h-4 w-4" />
@@ -871,11 +873,33 @@ function CostSection({
         and mirror the enricher&apos;s cost model; the per-run cost cap in
         “Analysis &amp; cost” hard-stops spend regardless.
       </p>
+      </Collapsible>
     </SectionCard>
   );
 }
 
 // ─── Layout primitives ────────────────────────────────────────────────────
+
+// Native disclosure used to tuck the page's densest blocks (the per-tier
+// source list, the vision prompts, the cost breakdown) out of the default
+// view — open on demand, no JS state.
+function Collapsible({
+  summary,
+  children,
+}: {
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group mt-5">
+      <summary className="text-muted-foreground hover:text-foreground flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
+        {summary}
+      </summary>
+      <div className="mt-4">{children}</div>
+    </details>
+  );
+}
 
 const PIPELINE = ["Sources", "Gather", "Vision", "Analysis"];
 

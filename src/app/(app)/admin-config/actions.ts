@@ -48,22 +48,28 @@ export async function listAdmins(): Promise<ListResult> {
   return { ok: true, admins: r.data.admins ?? [], self: r.data.self ?? null };
 }
 
-type MutateResult = { ok: true } | { ok: false; error: string };
+type GrantResult =
+  | { ok: true; admin: AdminRow }
+  | { ok: false; error: string };
 
 export async function grantAdmin(
   email: string,
   note: string,
-): Promise<MutateResult> {
+): Promise<GrantResult> {
   const r = await efInvoke<{ admin: AdminRow }>("admin-grant-admin", {
     email,
     note,
   });
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true };
+  return { ok: true, admin: r.data.admin };
 }
 
-export async function revokeAdmin(email: string): Promise<MutateResult> {
+type RevokeResult =
+  | { ok: true; removed: number }
+  | { ok: false; error: string };
+
+export async function revokeAdmin(email: string): Promise<RevokeResult> {
   const r = await efInvoke<{ removed: number }>("admin-revoke-admin", { email });
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true };
+  return { ok: true, removed: r.data.removed ?? 0 };
 }
