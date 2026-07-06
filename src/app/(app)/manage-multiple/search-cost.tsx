@@ -6,12 +6,12 @@
 const PAGE_SIZE = 20;
 
 // Google Places Text Search pricing (SKU model effective 2025-03-01).
-// The backend field mask includes places.location, which lands every
-// request in the Text Search Pro SKU regardless of the other fields.
-// Pricing for the 0–100K monthly tier — beyond that the tier rate
-// drops, so this is a worst-case estimate. The first 5,000 Pro requests
-// each month are free, shared across the whole project; surfaced in
-// the tooltip rather than discounted from the headline number, since
+// The backend field mask includes places.location, rating and
+// userRatingCount — all Text Search Pro SKU fields, so every request lands
+// in Pro regardless. Pricing for the 0–100K monthly tier — beyond that the
+// tier rate drops, so this is a worst-case estimate. The first 5,000 Pro
+// requests each month are free, shared across the whole project; surfaced
+// in the tooltip rather than discounted from the headline number, since
 // the remaining free quota isn't visible from the browser.
 const PRICE_PER_REQUEST_USD = 0.032;
 const FREE_PRO_REQUESTS_PER_MONTH = 5000;
@@ -99,10 +99,11 @@ export function CostCalculator({
       </div>
 
       <p className="text-muted-foreground/70 mt-3 text-[11px] leading-relaxed">
-        Worst-case estimate. The first {freeTierLabel} Pro calls each month
-        are free across the whole Google Cloud project, and per-call price
-        drops in higher volume tiers. Each page of 20 results is one
-        billable request.
+        Worst-case estimate. Quality filters don&apos;t change the cost — every
+        page of 20 results is one billable request whether or not the places
+        pass the filters. The first {freeTierLabel} Pro calls each month are
+        free across the whole Google Cloud project, and per-call price drops in
+        higher volume tiers.
       </p>
     </div>
   );
