@@ -291,11 +291,14 @@ function CalculatorView({
                       {stageLines.map((l) => (
                         <li
                           key={l.label}
-                          className="flex items-center justify-between gap-4 px-4 py-2.5"
+                          className="flex items-start justify-between gap-4 px-4 py-2.5"
                         >
                           <div className="min-w-0">
                             <p className="text-sm">{l.label}</p>
-                            <p className="text-muted-foreground truncate text-xs">{l.detail}</p>
+                            <p className="text-muted-foreground text-xs">{l.detail}</p>
+                            <p className="text-muted-foreground/80 mt-0.5 text-[11px] leading-snug">
+                              {l.pricing} · {l.note}
+                            </p>
                           </div>
                           <div className="shrink-0 text-right text-sm tabular-nums">
                             <span className="text-muted-foreground">{fmtTime(l.secs)}</span>
@@ -312,9 +315,10 @@ function CalculatorView({
           </div>
 
           <p className="text-muted-foreground/80 text-xs leading-relaxed">
-            Based on the enricher rate card. Gather steps overlap, so total time is setup +
-            slowest gather + analysis — not the sum of every row. Batch time assumes places run
-            sequentially. Level 5 heavy scrapes are not yet included.
+            Per-step costs from each provider&apos;s published rate card (Google Places, Apify,
+            Firecrawl, Perplexity, OpenAI — verified 2026-07-07). Gather steps overlap, so total
+            time is setup + slowest gather + analysis — not the sum of every row. Batch time assumes
+            places run sequentially.
           </p>
         </div>
       </div>
@@ -433,13 +437,15 @@ export function CostSection({
         <NumberField icon={<Layers className="text-muted-foreground h-4 w-4" />} label="Number of places" value={places} min={1} max={5000} onChange={setPlaces} disabled={false} />
       </div>
 
-      {/* Breakdown */}
+      {/* Breakdown — Fields (what it fetches / SKU) · Pricing (published rate) · Notes */}
       <div className="border-border -mx-4 mt-6 overflow-x-auto rounded-xl border sm:mx-0">
-        <table className="w-full min-w-[540px] text-sm">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-border text-muted-foreground border-b text-xs uppercase tracking-wide">
               <th className="px-4 py-2.5 text-left font-medium">Source / step</th>
-              <th className="hidden px-4 py-2.5 text-left font-medium sm:table-cell">Detail</th>
+              <th className="hidden px-4 py-2.5 text-left font-medium sm:table-cell">Fields</th>
+              <th className="hidden px-4 py-2.5 text-left font-medium md:table-cell">Notes</th>
+              <th className="px-4 py-2.5 text-right font-medium">Pricing</th>
               <th className="px-4 py-2.5 text-right font-medium">~Time</th>
               <th className="px-4 py-2.5 text-right font-medium">Cost</th>
             </tr>
@@ -450,12 +456,26 @@ export function CostSection({
                 key={l.label}
                 className={`border-border/60 border-b last:border-0 ${l.active ? "" : "opacity-40"}`}
               >
-                <td className="px-4 py-2.5 font-medium">{l.label}</td>
-                <td className="text-muted-foreground hidden px-4 py-2.5 sm:table-cell">{l.detail}</td>
-                <td className="text-muted-foreground px-4 py-2.5 text-right tabular-nums">
+                <td className="px-4 py-2.5 align-top font-medium">
+                  {l.label}
+                  {/* Fields + Notes fold under the label on narrow viewports */}
+                  <span className="text-muted-foreground mt-0.5 block text-xs font-normal sm:hidden">
+                    {l.detail}
+                  </span>
+                </td>
+                <td className="text-muted-foreground hidden px-4 py-2.5 align-top sm:table-cell">
+                  {l.detail}
+                </td>
+                <td className="text-muted-foreground hidden max-w-[280px] px-4 py-2.5 align-top text-xs md:table-cell">
+                  {l.note}
+                </td>
+                <td className="text-muted-foreground px-4 py-2.5 text-right align-top text-xs tabular-nums whitespace-nowrap">
+                  {l.pricing}
+                </td>
+                <td className="text-muted-foreground px-4 py-2.5 text-right align-top tabular-nums">
                   {l.active ? fmtTime(l.secs) : "—"}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums">
+                <td className="px-4 py-2.5 text-right align-top tabular-nums">
                   {l.active ? money(l.cost) : "—"}
                 </td>
               </tr>
@@ -463,7 +483,7 @@ export function CostSection({
           </tbody>
           <tfoot>
             <tr className="bg-background border-border border-t-2">
-              <td className="px-4 py-3 font-semibold" colSpan={2}>
+              <td className="px-4 py-3 font-semibold" colSpan={4}>
                 Per place
               </td>
               <td className="px-4 py-3 text-right font-semibold tabular-nums">
@@ -475,7 +495,7 @@ export function CostSection({
             </tr>
             {places > 1 && (
               <tr className="bg-background border-border/60 border-t">
-                <td className="text-muted-foreground px-4 py-2.5" colSpan={2}>
+                <td className="text-muted-foreground px-4 py-2.5" colSpan={4}>
                   × {places} places
                 </td>
                 <td className="text-muted-foreground px-4 py-2.5 text-right font-semibold tabular-nums">
@@ -491,9 +511,10 @@ export function CostSection({
       </div>
 
       <p className="text-muted-foreground/80 mt-3 text-[11px] leading-relaxed">
-        Approximate per-step costs based on the enricher&apos;s rate card. Every
-        step S1→S9 runs on every enrichment; gather steps run in parallel, so
-        total time is pre-work + slowest gather step + post-work — not the sum
+        Per-step costs from each provider&apos;s published rate card (Google
+        Places, Apify, Firecrawl, Perplexity, OpenAI — verified 2026-07-07).
+        Every step S1→S9 runs on every enrichment; gather steps run in parallel,
+        so total time is pre-work + slowest gather step + post-work — not the sum
         of every row. Batch time assumes places run one after another.
       </p>
       </Collapsible>
