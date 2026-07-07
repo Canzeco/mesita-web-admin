@@ -44,11 +44,17 @@ const COST_RATES = {
   synthStandard: 0.028, // gpt-4o synthesis (standard & high)
 } as const;
 
-// Fixed per-run volume assumptions the enricher bakes in (config defaults).
-// Google Places returns ≤10 photo refs; the basics step fetches media for each.
-const GOOGLE_PHOTOS_FETCHED = 10; // Place Photo media calls per place
-const IG_POST_DEPTH = 30; // gatherInstagramDepth default — posts pulled per IG run
-const DISCOVERY_FIELDS = 5; // website · instagram · facebook · opentable · ubereats
+// The five link-discovery channels, in config order. Each channel with a
+// candidate count > 0 fires one Firecrawl Search; a 0 disables it.
+export const LINK_CHANNELS = [
+  "website",
+  "instagram",
+  "facebook",
+  "opentable",
+  "ubereats",
+] as const;
+export type LinkChannel = (typeof LINK_CHANNELS)[number];
+export type LinkCounts = Record<LinkChannel, number>;
 
 // Rough wall-clock seconds per step. The gather steps overlap (the enricher
 // fires them with Promise.all), so the per-place total uses the stage model
@@ -106,11 +112,17 @@ export type CostLine = {
 };
 
 export type CostParams = {
-  quality: SynthesisQuality;
-  imageModel: SynthesisQuality;
-  vision: boolean;
-  g: number;
-  ig: number;
+  // Models box.
+  quality: SynthesisQuality; // profile text model
+  imageModel: SynthesisQuality; // image vision model
+  // Images box — Collection (candidate pool per source) + Analysis (how many
+  // of each pool the vision model reads; also what gets kept).
+  gCollect: number; // Google collect (1–10) → Place Photo fetches
+  igCollect: number; // Instagram collect (1–30) → Apify posts pulled
+  gAnalyze: number; // Analyze Google (0–10, ≤ collect) → vision calls
+  igAnalyze: number; // Analyze Instagram (0–30, ≤ collect) → vision calls
+  // Links box — per-channel Firecrawl Search candidate counts (0 disables).
+  links: LinkCounts;
   places: number;
 };
 
@@ -124,33 +136,39 @@ export type CostEstimate = {
 };
 
 // Build the per-step rate rows and the aggregate cost/time for one enrichment.
-// Every step S1→S9 runs on every enrichment (no tiers) — only the vision rows
-// can zero out, when photo analysis is off or no images are analyzed.
+// Every step S1→S9 runs on every enrichment (no tiers). Rows scale with the
+// live config knobs — Collection drives the Google-photo & IG-post volumes,
+// Links drives how many channels are searched, and Analysis drives the vision
+// calls (which zero out only when both analyze counts are 0).
 export function computeEnrichmentCost({
   quality,
   imageModel,
-  vision,
-  g,
-  ig,
+  gCollect,
+  igCollect,
+  gAnalyze,
+  igAnalyze,
+  links,
   places,
 }: CostParams): CostEstimate {
   const synthCost =
     quality === "economy" ? COST_RATES.synthEconomy : COST_RATES.synthStandard;
   const synthSecs =
     quality === "economy" ? TIME_RATES.synthEconomy : TIME_RATES.synthStandard;
-  const visionImgs = vision ? g + ig : 0;
-  const visionActive = vision && visionImgs > 0;
+  const visionImgs = gAnalyze + igAnalyze;
+  const visionActive = visionImgs > 0;
   const visionCostPer =
     imageModel === "economy" ? COST_RATES.visionEconomy : COST_RATES.visionStandard;
   const visionSecsPer =
     imageModel === "economy" ? TIME_RATES.visionEconomy : TIME_RATES.visionStandard;
 
-  const googlePhotoCost = COST_RATES.googlePhoto * GOOGLE_PHOTOS_FETCHED;
+  const googlePhotoCost = COST_RATES.googlePhoto * gCollect;
   const igApifyCost =
     COST_RATES.apifyInstagramProfile +
-    COST_RATES.apifyInstagramPost * IG_POST_DEPTH +
+    COST_RATES.apifyInstagramPost * igCollect +
     COST_RATES.apifyInstagramVerify;
-  const discoverySearchCost = COST_RATES.firecrawlSearchPerField * DISCOVERY_FIELDS;
+  const enabledChannels = LINK_CHANNELS.filter((c) => links[c] > 0).length;
+  const discoverySearchCost = COST_RATES.firecrawlSearchPerField * enabledChannels;
+  const discoveryActive = enabledChannels > 0;
 
   // Each line: cost (USD) + secs (duration) + stage for the wall-clock model.
   // pre = serial before gather · gather = concurrent · post = serial after.
@@ -169,7 +187,7 @@ export function computeEnrichmentCost({
       label: "S1 · Google photos",
       detail: "Place Photo media fetch",
       pricing: "$7 / 1k photos",
-      note: `${GOOGLE_PHOTOS_FETCHED} photos fetched (Places returns ≤10 refs) × $0.007`,
+      note: `Google collect = ${gCollect} photo${gCollect === 1 ? "" : "s"} fetched (≤10 refs) × $0.007`,
       cost: googlePhotoCost,
       secs: 0,
       stage: "pre",
@@ -199,11 +217,13 @@ export function computeEnrichmentCost({
       label: "S3 · link discovery",
       detail: "Firecrawl Search × channels",
       pricing: "2 credits / 10 results",
-      note: `${DISCOVERY_FIELDS} channel searches (~1–2 credits each)`,
+      note: discoveryActive
+        ? `${enabledChannels} of ${LINK_CHANNELS.length} channels enabled (~1–2 credits each)`
+        : "all channels disabled (Links all 0)",
       cost: discoverySearchCost,
       secs: TIME_RATES.discoverySearch,
       stage: "pre",
-      active: true,
+      active: discoveryActive,
     },
     {
       label: "S3 · agent validate + contacts",
@@ -213,7 +233,7 @@ export function computeEnrichmentCost({
       cost: COST_RATES.perplexityAgent,
       secs: TIME_RATES.discoveryAgent,
       stage: "pre",
-      active: true,
+      active: discoveryActive,
     },
     {
       label: "S4 · Google reviews + images",
@@ -229,7 +249,7 @@ export function computeEnrichmentCost({
       label: "S4 · Instagram",
       detail: "Apify IG profile + post scrapers",
       pricing: "$2.60/1k + $2.70/1k posts",
-      note: `profile + ${IG_POST_DEPTH} posts (depth) + identity verify`,
+      note: `profile + Instagram collect = ${igCollect} post${igCollect === 1 ? "" : "s"} pulled + identity verify`,
       cost: igApifyCost,
       secs: TIME_RATES.apifyInstagram,
       stage: "gather",
@@ -250,7 +270,7 @@ export function computeEnrichmentCost({
       detail: imageModel === "economy" ? "gpt-4o-mini vision" : "gpt-4o vision",
       pricing:
         imageModel === "economy" ? "~$0.001 / image" : "~$0.008 / image",
-      note: `${visionImgs} images × ${money(visionCostPer)} (detail:low)`,
+      note: `Analyze ${gAnalyze} Google + ${igAnalyze} Instagram = ${visionImgs} image${visionImgs === 1 ? "" : "s"} × ${money(visionCostPer)} (detail:low)`,
       cost: visionImgs * visionCostPer,
       secs: visionImgs * visionSecsPer,
       stage: "post",
