@@ -56,10 +56,16 @@ export function UnitSelectCatalog() {
     useUnitCatalogSearch();
 
   const sessionTokenRef = useRef(newSessionToken());
-  const [googlePredictions, setGooglePredictions] = useState<PlacePrediction[]>([]);
-  const [googleSearching, setGoogleSearching] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(null);
-  const [googleSearchedQuery, setGoogleSearchedQuery] = useState<string | null>(null);
+  const googleRequestIdRef = useRef(0);
+  // Query-keyed Google results — setState only after await (same pattern as useUnitCatalogSearch).
+  const [googleRemote, setGoogleRemote] = useState<{
+    query: string;
+    predictions: PlacePrediction[];
+  } | null>(null);
+  const [googleRemoteError, setGoogleRemoteError] = useState<{
+    query: string;
+    message: string;
+  } | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creatingLabel, setCreatingLabel] = useState<string | null>(null);
   const [createPending, startCreate] = useTransition();
@@ -74,43 +80,33 @@ export function UnitSelectCatalog() {
     hits.length === 0 &&
     trimmed.length >= 2;
 
+  const googleActive = catalogSettledEmpty && !placeIdMode;
+
   // When Mesita catalog search settles empty, fetch Google Places suggestions
   // so the operator can create from an external match. Catalog already debounced.
   useEffect(() => {
-    if (!catalogSettledEmpty || placeIdMode) {
-      return;
-    }
+    if (!googleActive) return;
 
-    let cancelled = false;
-    setGoogleSearching(true);
-    setGoogleError(null);
+    const query = trimmed;
+    const id = ++googleRequestIdRef.current;
     void (async () => {
-      const r = await suggestPlaces(trimmed, sessionTokenRef.current);
-      if (cancelled) return;
-      setGoogleSearching(false);
-      setGoogleSearchedQuery(trimmed);
+      const r = await suggestPlaces(query, sessionTokenRef.current);
+      if (id !== googleRequestIdRef.current) return;
       if (!r.ok) {
-        setGoogleError(r.error);
-        setGooglePredictions([]);
+        setGoogleRemoteError({ query, message: r.error });
         return;
       }
-      setGooglePredictions(r.data);
+      setGoogleRemoteError(null);
+      setGoogleRemote({ query, predictions: r.data });
     })();
+  }, [googleActive, trimmed]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [catalogSettledEmpty, placeIdMode, trimmed]);
-
-  // Reset Google state whenever the query changes away from a settled empty search.
-  useEffect(() => {
-    if (!catalogSettledEmpty) {
-      setGooglePredictions([]);
-      setGoogleSearching(false);
-      setGoogleError(null);
-      setGoogleSearchedQuery(null);
-    }
-  }, [catalogSettledEmpty]);
+  const googleReady = googleRemote !== null && googleRemote.query === trimmed;
+  const googleFailed = googleRemoteError !== null && googleRemoteError.query === trimmed;
+  const googleSearching = googleActive && !googleReady && !googleFailed;
+  const googlePredictions = googleReady ? googleRemote.predictions : [];
+  const googleError = googleFailed && googleRemoteError ? googleRemoteError.message : null;
+  const showGoogleSection = googleActive;
 
   const pickUnit = (projectId: string) => {
     router.push(unitSectionHref(projectId, "place"));
@@ -144,11 +140,6 @@ export function UnitSelectCatalog() {
   };
 
   const onPickGoogle = (prediction: PlacePrediction) => {
-    if (prediction.status !== "not_in_mesita") {
-      // Already on Mesita — open the existing unit via place-id lookup.
-      createFromPlaceId(prediction.placeId, prediction.mainText);
-      return;
-    }
     createFromPlaceId(prediction.placeId, prediction.mainText);
   };
 
@@ -167,24 +158,20 @@ export function UnitSelectCatalog() {
     }
 
     const creatable = googlePredictions.filter((p) => p.status === "not_in_mesita");
-    if (catalogSettledEmpty && creatable.length === 1) {
+    if (googleActive && creatable.length === 1) {
       onPickGoogle(creatable[0]);
     }
   };
 
   const onClear = () => {
     clear();
-    setGooglePredictions([]);
-    setGoogleSearching(false);
-    setGoogleError(null);
-    setGoogleSearchedQuery(null);
+    googleRequestIdRef.current += 1;
+    setGoogleRemote(null);
+    setGoogleRemoteError(null);
     setCreateError(null);
     setCreatingLabel(null);
     sessionTokenRef.current = newSessionToken();
   };
-
-  const showGoogleSection =
-    catalogSettledEmpty && !placeIdMode && (googleSearching || googleError || googleSearchedQuery === trimmed);
 
   return (
     <div className="-mx-4 -mt-8 sm:-mx-6 sm:-mt-12 lg:-mx-8">
@@ -284,7 +271,7 @@ export function UnitSelectCatalog() {
               Not on Mesita · Google results
               {googleSearching
                 ? " · Searching…"
-                : googleSearchedQuery === trimmed
+                : googleReady
                   ? ` · ${googlePredictions.length}`
                   : ""}
             </p>
@@ -339,16 +326,13 @@ export function UnitSelectCatalog() {
                 );
               })}
 
-              {!googleSearching &&
-                !googleError &&
-                googleSearchedQuery === trimmed &&
-                googlePredictions.length === 0 && (
-                  <div className="border-border bg-card rounded-2xl border px-4 py-12 text-center">
-                    <p className="text-muted-foreground text-sm">
-                      {`No Mesita units or Google matches for “${trimmed}”. Try another spelling or paste a Place ID.`}
-                    </p>
-                  </div>
-                )}
+              {!googleSearching && !googleError && googleReady && googlePredictions.length === 0 && (
+                <div className="border-border bg-card rounded-2xl border px-4 py-12 text-center">
+                  <p className="text-muted-foreground text-sm">
+                    {`No Mesita units or Google matches for “${trimmed}”. Try another spelling or paste a Place ID.`}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
