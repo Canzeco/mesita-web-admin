@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { ExternalLink, UtensilsCrossed } from "lucide-react";
 import { updatePlace, type AdminPlace } from "../actions";
-import { ErrorNote, SaveBar, SectionCard, TextField } from "../ui";
+import { SaveBar, SectionCard, TextField } from "../ui";
 
 const MENU_NAME_MAX = 80;
 
@@ -92,8 +92,13 @@ export function ProductsSection({
           Open menu <ExternalLink className="h-3.5 w-3.5" />
         </a>
       ) : null}
-      {error ? <ErrorNote message={error} /> : null}
-      <SaveBar pending={pending} dirty={dirty} ok={ok} onSave={save} />
+      <SaveBar
+        pending={pending}
+        dirty={dirty}
+        ok={ok}
+        error={error}
+        onSave={save}
+      />
     </SectionCard>
   );
 }
