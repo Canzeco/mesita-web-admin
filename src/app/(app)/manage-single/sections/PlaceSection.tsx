@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
+  CalendarCheck,
+  CalendarClock,
   Check,
   Clock,
   Copy,
@@ -72,12 +74,24 @@ const CHANNELS: {
     label: "Google Maps",
     logo: "/channels/googlemaps.svg",
   },
-  { key: "opentable_url", label: "OpenTable", logo: "/channels/opentable.svg" },
   {
     key: "uber_eats_url",
     label: "Uber Eats",
     logo: "/channels/ubereats-mark.svg",
   },
+];
+
+// Booking endpoints for the consumer reservations agent — split out of the
+// social Channels box so the integration target is unambiguous. Backed by the
+// existing place columns (opentable_url / resy_url); no schema change.
+const RESERVATION_LINKS: {
+  key: keyof AdminPlace;
+  label: string;
+  logo?: string;
+  Icon?: LucideIcon;
+}[] = [
+  { key: "opentable_url", label: "OpenTable", logo: "/channels/opentable.svg" },
+  { key: "resy_url", label: "Resy", Icon: CalendarClock },
 ];
 
 function ChannelLabelIcon({
@@ -126,6 +140,7 @@ type Form = {
   address: string;
   photos: string[];
   channels: Record<string, string>;
+  reservations: Record<string, string>;
   hours: Record<Day, DayHours>;
 };
 
@@ -164,6 +179,8 @@ function placeToForm(v: AdminPlace, limits: PlaceFieldLimits = FALLBACK_LIMITS):
   }
   const channels: Record<string, string> = {};
   for (const c of CHANNELS) channels[c.key as string] = str(v[c.key]);
+  const reservations: Record<string, string> = {};
+  for (const c of RESERVATION_LINKS) reservations[c.key as string] = str(v[c.key]);
   return {
     name: (v.name ?? "").slice(0, limits.placeNameMax),
     category: v.category ?? "",
@@ -174,13 +191,14 @@ function placeToForm(v: AdminPlace, limits: PlaceFieldLimits = FALLBACK_LIMITS):
     address: v.address ?? "",
     photos: (v.photos ?? []).slice(0, limits.photosMax),
     channels,
+    reservations,
     hours,
   };
 }
 
 // Build a partial business-update-project patch for one Place box.
 // Empty strings become null so a cleared field actually clears.
-type PlaceBox = "basics" | "location" | "time" | "channels" | "photos";
+type PlaceBox = "basics" | "location" | "time" | "channels" | "reservations" | "photos";
 
 function boxToPatch(
   box: PlaceBox,
@@ -217,6 +235,11 @@ function boxToPatch(
     for (const c of CHANNELS) patch[c.key as string] = nz(f.channels[c.key as string]);
     return patch;
   }
+  if (box === "reservations") {
+    const patch: Record<string, unknown> = { id };
+    for (const c of RESERVATION_LINKS) patch[c.key as string] = nz(f.reservations[c.key as string]);
+    return patch;
+  }
   return { id, photos: f.photos.slice(0, limits.photosMax) };
 }
 
@@ -245,6 +268,7 @@ function mergeBoxSlice(base: Form, from: Form, box: PlaceBox): Form {
       email: from.email,
     };
   }
+  if (box === "reservations") return { ...base, reservations: from.reservations };
   return { ...base, photos: from.photos };
 }
 
@@ -287,6 +311,10 @@ export function PlaceSection({
       ),
     [form.channels, form.phone, form.email, saved.channels, saved.phone, saved.email],
   );
+  const dirtyReservations = useMemo(
+    () => !sliceEqual(form.reservations, saved.reservations),
+    [form.reservations, saved.reservations],
+  );
   const dirtyPhotos = useMemo(
     () => !sliceEqual(form.photos, saved.photos),
     [form.photos, saved.photos],
@@ -298,6 +326,8 @@ export function PlaceSection({
     setForm((f) => ({ ...f, [k]: val }));
   const setChannel = (key: string, val: string) =>
     setForm((f) => ({ ...f, channels: { ...f.channels, [key]: val } }));
+  const setReservation = (key: string, val: string) =>
+    setForm((f) => ({ ...f, reservations: { ...f.reservations, [key]: val } }));
   const setDay = (d: Day, patch: Partial<DayHours>) =>
     setForm((f) => ({ ...f, hours: { ...f.hours, [d]: { ...f.hours[d], ...patch } } }));
 
@@ -705,6 +735,47 @@ export function PlaceSection({
           </SectionCard>
         </div>
       </div>
+
+      {/* Reservations — full-width booking-integration band. Kept out of social
+          Channels so the agent's booking target is unambiguous; OpenTable / Resy
+          write existing place columns (no schema change). */}
+      <SectionCard
+        icon={<CalendarCheck className="text-muted-foreground h-4 w-4" />}
+        title="Reservations"
+        subtitle="Booking endpoints the consumer reservations agent uses to hold a table."
+      >
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {RESERVATION_LINKS.map((c) => {
+            const val = form.reservations[c.key as string] ?? "";
+            return (
+              <TextField
+                key={c.key as string}
+                label={c.label}
+                icon={<ChannelLabelIcon logo={c.logo} Icon={c.Icon} />}
+                labelRight={val.trim() ? <OpenLink href={val} /> : undefined}
+                value={val}
+                onChange={(x) => setReservation(c.key as string, x)}
+                placeholder="https://…"
+                disabled={anyPending}
+              />
+            );
+          })}
+          <div className="border-border bg-muted/30 text-muted-foreground flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Connect an OpenTable or Resy listing to give the reservations agent a
+              direct booking endpoint. Leave blank to fall back to phone.
+            </span>
+          </div>
+        </div>
+        <SaveBar
+          pending={pendingBox === "reservations"}
+          dirty={dirtyReservations}
+          ok={!!oks.reservations}
+          error={errors.reservations}
+          onSave={() => saveBox("reservations")}
+        />
+      </SectionCard>
 
       {metaFor !== null && (
         <MediaMetaDialog
