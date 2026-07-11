@@ -238,25 +238,6 @@ export const PLACE_FIELD_PERMISSIONS: PlaceFieldPermission[] = [
     admin: true,
     business: true,
   },
-  {
-    key: "whatsapp_pr_urls",
-    label: "PR WhatsApp",
-    group: "Channels",
-    native: false,
-    enricher: false,
-    admin: true,
-    business: true,
-  },
-  {
-    key: "instagram_pr_urls",
-    label: "PR Instagram",
-    group: "Channels",
-    native: false,
-    enricher: false,
-    admin: true,
-    business: true,
-  },
-
   // ── Media ───────────────────────────────────────────────────────────────
   {
     key: "photos",

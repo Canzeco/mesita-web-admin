@@ -736,7 +736,20 @@ export function PlaceSection({
                   aria-checked={!h.closed}
                   aria-label={`${d} ${h.closed ? "closed" : "open"}`}
                   disabled={anyPending}
-                  onClick={() => setDay(d, { closed: !h.closed })}
+                  // Re-enabling a day must never surface empty --:-- inputs:
+                  // seed the 9-to-9 default when no range was kept around.
+                  onClick={() =>
+                    setDay(
+                      d,
+                      h.closed
+                        ? {
+                            closed: false,
+                            open: h.open || "09:00",
+                            close: h.close || "21:00",
+                          }
+                        : { closed: true },
+                    )
+                  }
                   className={
                     "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition disabled:opacity-50 " +
                     (h.closed ? "bg-border" : "bg-pink-gradient")
