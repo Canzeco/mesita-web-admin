@@ -42,7 +42,7 @@ import {
   type ReservationTarget,
 } from "../actions";
 import { PlaceTagsPicker } from "../PlaceTagsPicker";
-import { GroupLabel, SaveBar, SectionCard, TextArea, TextField } from "../ui";
+import { GroupLabel, PhoneField, SaveBar, SectionCard, TextArea, TextField } from "../ui";
 import { unitSectionHref } from "../nav";
 import {
   REWARD_ROWS,
@@ -789,13 +789,14 @@ export function PlaceSection({
           <GroupLabel>Contact</GroupLabel>
         </div>
         <div className="grid gap-3.5 sm:grid-cols-2">
-          {/* Country code is mandatory — the update EF rejects phones without +CC. */}
-          <TextField
+          {/* Country code is mandatory (the update EF rejects phones without
+              +CC) — the flag picker bakes it in, so the field only asks for
+              the local number. */}
+          <PhoneField
             label="Phone"
-            leading={<Phone className="text-muted-foreground h-3.5 w-3.5 shrink-0" />}
             value={form.phone}
             onChange={(x) => set("phone", x)}
-            placeholder="+52 81 8378 2164"
+            placeholder="81 8378 2164"
             disabled={anyPending}
           />
           <TextField
@@ -881,21 +882,33 @@ export function PlaceSection({
                   ))}
                 </select>
               </label>
-              <TextField
-                label={selected ? selected.label : "Value"}
-                leading={
-                  selected ? (
-                    <ChannelLabelIcon logo={selected.logo} Icon={selected.Icon} />
-                  ) : undefined
-                }
-                labelRight={
-                  isUrl && value.trim() ? <OpenLink href={value} /> : undefined
-                }
-                value={value}
-                onChange={setReservationValue}
-                placeholder={selected?.placeholder ?? "Pick a channel first"}
-                disabled={anyPending || !form.reservation.channel}
-              />
+              {selected?.kind === "phone" ? (
+                // Same flag picker as the Channels phone — the reservationist
+                // dials this, so the +CC matters even more here.
+                <PhoneField
+                  label={selected.label}
+                  value={value}
+                  onChange={setReservationValue}
+                  placeholder="81 8378 2164"
+                  disabled={anyPending}
+                />
+              ) : (
+                <TextField
+                  label={selected ? selected.label : "Value"}
+                  leading={
+                    selected ? (
+                      <ChannelLabelIcon logo={selected.logo} Icon={selected.Icon} />
+                    ) : undefined
+                  }
+                  labelRight={
+                    isUrl && value.trim() ? <OpenLink href={value} /> : undefined
+                  }
+                  value={value}
+                  onChange={setReservationValue}
+                  placeholder={selected?.placeholder ?? "Pick a channel first"}
+                  disabled={anyPending || !form.reservation.channel}
+                />
+              )}
             </div>
           );
         })()}
@@ -1207,7 +1220,16 @@ function OwnershipCard({
       icon={<ShieldCheck className="h-4 w-4" />}
       tint="emerald"
       title="Ownership"
-      subtitle="Partner verification & owner accounts."
+      subtitle="Partner verification & owner accounts — manage on the Team tab."
+      action={
+        <Link
+          href={unitSectionHref(place.id, "team")}
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs font-medium transition"
+        >
+          Edit
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      }
     >
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <ReadField label="Verified">
