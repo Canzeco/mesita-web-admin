@@ -599,11 +599,11 @@ export function PlaceSection({
           />
         </div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <ReadField label="Price level" auto>
+          <ReadField label="Price level" auto boxed>
             <PriceDisplay level={place.price_level} />
           </ReadField>
           {/* Friendly label (e.g. "🪩 Nightclub"), never the snakecase slug. */}
-          <ReadField label="Category" auto>
+          <ReadField label="Category" auto boxed>
             {place.category_label ?? place.category ?? "—"}
           </ReadField>
         </div>
@@ -768,7 +768,9 @@ export function PlaceSection({
         title="Channels"
         subtitle="Official links + contact. Leave blank to clear."
       >
-        <div className="mt-5 grid gap-3.5 sm:grid-cols-2">
+        {/* One column, one list — links and contacts are all just channels;
+            no sub-grouping. */}
+        <div className="mt-5 grid gap-3.5">
           {CHANNELS.map((c) => {
             const val = form.channels[c.key as string] ?? "";
             return (
@@ -784,11 +786,6 @@ export function PlaceSection({
               />
             );
           })}
-        </div>
-        <div className="mt-6 mb-2">
-          <GroupLabel>Contact</GroupLabel>
-        </div>
-        <div className="grid gap-3.5 sm:grid-cols-2">
           {/* Country code is mandatory (the update EF rejects phones without
               +CC) — the flag picker bakes it in, so the field only asks for
               the local number. */}
@@ -943,15 +940,25 @@ export function PlaceSection({
 function ReadField({
   label,
   auto,
+  boxed,
   children,
 }: {
   label: string;
   auto?: boolean;
+  /** Render label + value like a (disabled) filled input, so the field sits
+   *  flush with the editable TextFields around it instead of as bare text. */
+  boxed?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-muted-foreground flex min-h-4 items-center gap-1.5 text-[11px] font-semibold tracking-[0.05em] uppercase">
+      <span
+        className={
+          boxed
+            ? "text-foreground/80 flex min-h-4 items-center gap-1.5 text-[13px] font-medium"
+            : "text-muted-foreground flex min-h-4 items-center gap-1.5 text-[11px] font-semibold tracking-[0.05em] uppercase"
+        }
+      >
         {label}
         {auto ? (
           <span className="text-muted-foreground/70 inline-flex items-center gap-0.5 text-[10px] font-normal tracking-normal normal-case">
@@ -960,7 +967,15 @@ function ReadField({
           </span>
         ) : null}
       </span>
-      <div className="flex min-h-9 items-center text-sm">{children}</div>
+      <div
+        className={
+          boxed
+            ? "bg-muted/50 flex min-h-10 items-center rounded-xl px-3.5 text-sm"
+            : "flex min-h-9 items-center text-sm"
+        }
+      >
+        {children}
+      </div>
     </div>
   );
 }

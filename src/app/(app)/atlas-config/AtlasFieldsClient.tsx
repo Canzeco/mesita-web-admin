@@ -52,7 +52,7 @@ export function AtlasFieldsClient({ data }: { data: AtlasFieldsPayload }) {
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
           Place profile fields — who may write each one today. Read-only matrix
-          from shipped native / admin / business / consumer contracts (not a
+          from shipped native / enricher / admin / business contracts (not a
           live ACL toggle).
         </p>
         <div className="mt-5 -mx-4 overflow-x-auto sm:mx-0">
