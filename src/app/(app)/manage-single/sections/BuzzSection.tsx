@@ -244,7 +244,7 @@ export function BuzzSection({ place }: { place: AdminPlace }) {
           <DecayCurve V={V} I={I} km={km} />
           <div className="mt-3 grid grid-cols-3 gap-2">
             {[0.5, 2, 5].map((d) => (
-              <div key={d} className="bg-muted/50 rounded-xl px-3 py-2 text-center">
+              <div key={d} className="bg-muted/60 border-border/60 rounded-xl border px-3 py-2 text-center">
                 <p className="text-muted-foreground text-[11px]">at {d} km</p>
                 <p className="text-sm font-semibold">{fmt(buzzAt(d))}</p>
               </div>
@@ -299,11 +299,11 @@ export function BuzzSection({ place }: { place: AdminPlace }) {
           <div>
             <GroupLabel>Embedding text</GroupLabel>
             {place.description ? (
-              <p className="bg-muted/50 mt-2 rounded-xl px-4 py-3 text-sm leading-relaxed">
+              <p className="bg-muted/60 border-border/60 mt-2 rounded-xl border px-4 py-3 text-sm leading-relaxed">
                 {place.description}
               </p>
             ) : (
-              <p className="text-muted-foreground bg-muted/50 mt-2 rounded-xl px-4 py-3 text-sm italic">
+              <p className="text-muted-foreground bg-muted/60 border-border/60 mt-2 rounded-xl border px-4 py-3 text-sm italic">
                 No description yet — the Enricher writes this; until then there
                 is nothing to embed.
               </p>
@@ -327,7 +327,7 @@ export function BuzzSection({ place }: { place: AdminPlace }) {
 
           <div>
             <GroupLabel>Vector preview</GroupLabel>
-            <div className="bg-muted/50 mt-2 flex h-16 items-end gap-px overflow-hidden rounded-xl px-3 pt-2">
+            <div className="bg-muted/60 border-border/60 mt-2 flex border h-16 items-end gap-px overflow-hidden rounded-xl px-3 pt-2">
               {vector.map((v, i) => (
                 <span
                   key={i}
