@@ -172,17 +172,19 @@ export function PromosSection({
         {error && <ErrorNote message={error} />}
       </SectionCard>
 
-      <RewardsExplainer />
+      <RewardsExplainer place={v} />
     </div>
   );
 }
 
 // ── Rewards explainer ─────────────────────────────────────────────────────
-// Static teaching box under the rate matrix: the four rewards are the cross
-// of visit type (Welcome / Returning) × guest class (Free / Premium). Each
+// Teaching box under the rate matrix: the four rewards are the cross of
+// visit type (Welcome / Returning) × guest class (Free / Premium). Each
 // concept tile carries a tinted icon chip, and a horizontally scrolling
 // strip of mock Mesita users (Free + Premium mixed) makes the mapping
-// concrete — names, handles, avatars and spend are illustrative only.
+// concrete, echoing the place's live configured rates (optimistic state,
+// so they track clicks instantly) — names, handles, avatars and spend are
+// illustrative only, not real accounts.
 
 const EXPLAINER_TILES: {
   label: string;
@@ -235,7 +237,7 @@ const MOCK_USERS: {
   { name: "Regina Salas", handle: "reginaout", premium: false, spend: "MX$11,800", avatar: 5 },
 ];
 
-function RewardsExplainer() {
+function RewardsExplainer({ place }: { place: AdminPlace }) {
   return (
     <SectionCard
       icon={<Users className="h-4 w-4" />}
@@ -272,7 +274,12 @@ function RewardsExplainer() {
       </div>
       <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {MOCK_USERS.map((u) => (
-          <MockUserCard key={u.name} {...u} />
+          <MockUserCard
+            key={u.name}
+            {...u}
+            welcomeRate={u.premium ? place.welcome_premium_rate : place.welcome_free_rate}
+            returningRate={u.premium ? place.premium_rate : place.free_rate}
+          />
         ))}
       </div>
     </SectionCard>
@@ -285,12 +292,16 @@ function MockUserCard({
   premium,
   spend,
   avatar,
+  welcomeRate,
+  returningRate,
 }: {
   name: string;
   handle: string | null;
   premium: boolean;
   spend: string;
   avatar: number;
+  welcomeRate: number | null;
+  returningRate: number | null;
 }) {
   const tier = premium ? "Premium" : "Free";
   return (
@@ -359,10 +370,24 @@ function MockUserCard({
         <span className="text-foreground font-semibold tabular-nums">{spend}</span>
       </p>
       <p className="text-muted-foreground mt-2 border-t border-dashed pt-2 text-[11px] leading-relaxed">
-        First visit <span className="text-foreground font-medium">Welcome · {tier}</span>,
-        then <span className="text-foreground font-medium">Returning · {tier}</span>.
+        First visit <span className="text-foreground font-medium">Welcome · {tier}</span>{" "}
+        <RateNow rate={welcomeRate} />, then{" "}
+        <span className="text-foreground font-medium">Returning · {tier}</span>{" "}
+        <RateNow rate={returningRate} />.
       </p>
     </article>
+  );
+}
+
+// Live echo of one configured rate — reads off the optimistic Promos state,
+// so it tracks the operator's clicks in the matrix above instantly.
+function RateNow({ rate }: { rate: number | null }) {
+  return typeof rate === "number" ? (
+    <span className="text-foreground font-semibold tabular-nums">
+      (currently {rate}%)
+    </span>
+  ) : (
+    <span className="italic">(currently Off)</span>
   );
 }
 
