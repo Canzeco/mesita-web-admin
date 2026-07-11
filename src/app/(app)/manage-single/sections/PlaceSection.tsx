@@ -617,7 +617,7 @@ export function PlaceSection({
             }
             value={form.description}
             onChange={(x) => set("description", x.slice(0, limits.descriptionMax))}
-            rows={4}
+            rows={9}
             maxLength={limits.descriptionMax}
             disabled={anyPending}
           />
