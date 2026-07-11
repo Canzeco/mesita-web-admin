@@ -30,3 +30,11 @@ Where things live: **Linear** (team Mesita, `MESITA-`) = work state · **Notion*
 - "**Atlas**" is legacy branding for the place-intelligence subsystem (why `atlas-*` routes / `atlas_*` columns persist) — it is the **Enricher**. The `/atlas-config` page is Atlas Config (profile-spec) + Enricher Config (pipeline behavior).
 - `database.types.ts` is hand-copied across web apps and has drifted before — regenerate from cloud, don't hand-edit.
 - CI: `lint · typecheck · build` (Node 22+).
+
+## Cursor Cloud specific instructions
+
+Standard commands live in `package.json` / `README.md` (`pnpm install`, `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm build`). Node 22 (`.nvmrc`) + pnpm; the update script runs `pnpm install`. Non-obvious caveats:
+
+- **`pnpm dev` needs a `.env.local`** with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Both are public/non-secret client values (pull from the Mesita Supabase project via the Supabase MCP `get_project_url` / `get_publishable_keys`). Without them the Supabase clients throw `Missing NEXT_PUBLIC_SUPABASE_URL...` on **every** page — including the `/` sign-in surface — since env is read at call time. `lint`/`typecheck`/`build` all succeed offline with no env (env reads are deferred so the build's page-data pass doesn't crash), which is why CI needs no secrets.
+- **Full sign-in can't complete locally.** Google OAuth only redirects up to the Google account chooser; completing login requires a Google account on the `public.super_admins` allowlist **and** the `admin-web-*` Edge Functions deployed in the sibling `mesita-supabase` repo. Locally you can verify the sign-in page renders, the OAuth handoff starts, and the middleware guard (protected routes like `/central` 307-redirect to `/` when unauthenticated).
+- The repo rule "no local dev servers (verify via Vercel)" is for feature work; running `pnpm dev` to verify the environment is fine.
